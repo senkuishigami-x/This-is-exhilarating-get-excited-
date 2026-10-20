@@ -100,10 +100,11 @@ resize();
 function showHelp(n){
   const insecure=!window.isSecureContext||n==='Insecure';
   const steps=insecure?['Open this page over https (your github.io link)','Do not open the downloaded file directly']:
-   ['Tap the lock or tune icon left of the address bar \u2192 Permissions \u2192 Camera \u2192 Allow','Or Chrome menu \u22ee \u2192 Settings \u2192 Site settings \u2192 Camera \u2192 allow this site','Also check Android Settings \u2192 Apps \u2192 Chrome \u2192 Permissions \u2192 Camera \u2192 Allow','Close other apps that use the camera, then come back \u2013 it restarts automatically'];
+   ['Tap the lock or tune icon left of the address bar \u2192 Permissions \u2192 Camera \u2192 Allow (or tap Reset permissions so Chrome asks again)','Or Chrome menu \u22ee \u2192 Settings \u2192 Site settings \u2192 Camera \u2192 find this site under Blocked \u2192 Allow','Also check Android Settings \u2192 Apps \u2192 Chrome \u2192 Permissions \u2192 Camera \u2192 Allow','Close other apps that use the camera, then come back \u2013 it restarts automatically'];
   const h=$('help');
-  h.innerHTML='<b>'+(n==='NotAllowedError'?'Chrome is blocking the camera':n==='NotReadableError'?'Another app is using the camera':'Camera couldn\u2019t start')+'</b><ol>'+steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
+  h.innerHTML='<b>'+(n==='Pending'?'No prompt showing? Do this':n==='NotAllowedError'?'Chrome is blocking the camera':n==='NotReadableError'?'Another app is using the camera':'Camera couldn\u2019t start')+'</b><ol>'+steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
   h.classList.remove('hide');$('intro').classList.remove('hide');$('bar').classList.add('hide');$('start').textContent='Allow camera & try again';
+  try{navigator.permissions.query({name:'camera'}).then(p=>{const m={granted:'Allowed',denied:'Blocked',prompt:'Will ask'};h.insertAdjacentHTML('beforeend','<p style="margin:10px 0 0">Chrome says this site\u2019s camera permission is: <b>'+(m[p.state]||p.state)+'</b></p>')}).catch(()=>{})}catch(e){}
 }
 
 // ---------- model (retries, GPU to CPU fallback, offline-safe)
@@ -128,6 +129,7 @@ async function setEngine(d){cfg.engine=d;$('engine').textContent='Engine: '+d;tr
 // ---------- camera
 async function startCam(quiet){
   setSt('Waiting for Chrome permission…');
+  clearTimeout(startCam.t);startCam.t=setTimeout(()=>{if(!camOn)showHelp('Pending')},4500);
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Object.assign(new Error('x'),{name:'Insecure'});
     if(stream)stream.getTracks().forEach(t=>t.stop());
@@ -138,13 +140,13 @@ async function startCam(quiet){
     cam.classList.toggle('mirror',mirror);
     try{tr.applyConstraints({advanced:[{focusMode:'continuous'},{exposureMode:'continuous'},{whiteBalanceMode:'continuous'}]}).catch(()=>{})}catch(e){}
     tr.addEventListener('ended',()=>{camOn=false;setSt('Camera stopped');showHelp('NotReadableError')});
-    camOn=true;hands=[];miss=0;lastT=-1;ec=0;
+    clearTimeout(startCam.t);camOn=true;hands=[];miss=0;lastT=-1;ec=0;
     $('intro').classList.add('hide');$('bar').classList.remove('hide');
     try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
     if(!loopOn){loopOn=true;requestAnimationFrame(loop)}
     if(!landmarker){if(!await ensureModel())return true}
     setSt('Show your hand');return true;
-  }catch(e){if(!quiet){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}return false}
+  }catch(e){clearTimeout(startCam.t);if(!quiet){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}return false}
 }
 $('start').onclick=()=>startCam();
 addEventListener('load',()=>startCam());
