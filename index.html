@@ -6,19 +6,20 @@
 <meta name="theme-color" content="#07080d">
 <title>Handloom – shapes from your fingers</title>
 <style>
-:root{--bg:#07080d;--fg:#e8ecf5;--mut:#8a93a8;--panel:rgba(16,18,28,.8);--line:rgba(255,255,255,.14);--acc:#5ef2e0;--acc2:#ff5fd2}
+:root{--bg:#07080d;--fg:#e8ecf5;--mut:#9aa3b8;--panel:rgba(16,18,28,.82);--line:rgba(255,255,255,.16);--acc:#5ef2e0;--acc2:#ff5fd2}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Segoe UI",Roboto,system-ui,sans-serif;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none}
-#stage{position:fixed;inset:0;height:100dvh;padding-top:env(safe-area-inset-top,0px)}
-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:.35;filter:grayscale(1) contrast(1.1)}
+video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;opacity:.5;filter:grayscale(1) contrast(1.05)}
 video.mirror{transform:scaleX(-1)}
 canvas{position:fixed;inset:0;width:100%;height:100%}
 #hud{pointer-events:none}
 header{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:12px;right:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;pointer-events:none}
-h1{margin:0;font:600 15px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase}
+h1{margin:0;font:600 15px/1 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.18em;text-transform:uppercase;text-shadow:0 1px 4px #000}
 h1 span{color:var(--acc)}
-#status{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--mut);background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:99px;max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#status,#hint{font:12px ui-monospace,Menlo,Consolas,monospace;color:var(--mut);background:var(--panel);border:1px solid var(--line);padding:6px 10px;border-radius:99px}
+#status{max-width:68vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #status.on{color:var(--acc)}
+#hint{position:fixed;top:calc(env(safe-area-inset-top,0px) + 54px);left:50%;transform:translateX(-50%);max-width:92vw;text-align:center;border-radius:12px;color:var(--fg);line-height:1.4;pointer-events:none}
 #intro{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 30%,#14172a,var(--bg) 70%);overflow:auto}
 .card{max-width:390px;text-align:center}
 .card h2{font-size:28px;margin:0 0 10px;letter-spacing:-.01em}
@@ -26,27 +27,26 @@ h1 span{color:var(--acc)}
 .map{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:0 0 18px;font:12px ui-monospace,Menlo,monospace;color:var(--mut)}
 .map div{border:1px solid var(--line);border-radius:10px;padding:8px 2px}
 .map b{display:block;font-size:20px;color:var(--acc);margin-bottom:2px}
-button{font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:44px;cursor:pointer;font-size:13px}
-button:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button{font:inherit;color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;min-height:42px;cursor:pointer;font-size:12.5px}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 button.primary{background:linear-gradient(120deg,var(--acc),var(--acc2));color:#07080d;font-weight:700;border:0;padding:14px 26px;font-size:16px}
 button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
-#bar{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+#bar{position:fixed;left:8px;right:8px;bottom:calc(env(safe-area-inset-bottom,0px) + 8px);display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
 #help{margin:16px 0 0;padding:14px 16px;border:1px solid var(--line);border-radius:12px;text-align:left;font-size:13px;color:var(--mut);line-height:1.55}
 #help b{color:var(--fg)}#help ol{margin:8px 0 0;padding-left:20px}
 .hide{display:none!important}
 </style>
 </head>
 <body>
-<div id="stage">
 <video id="cam" playsinline muted autoplay aria-hidden="true"></video>
 <canvas id="art" role="img" aria-label="Pattern drawn from your finger positions"></canvas>
 <canvas id="hud" aria-hidden="true"></canvas>
-</div>
 
 <header>
   <h1>Hand<span>loom</span></h1>
   <div id="status" role="status" aria-live="polite">Starting…</div>
 </header>
+<div id="hint" class="hide" role="status"></div>
 
 <section id="intro" aria-labelledby="t">
   <div class="card">
@@ -55,7 +55,7 @@ button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
     <div class="map" aria-label="Fingers to shape">
       <div><b>1</b>dot</div><div><b>2</b>line</div><div><b>3</b>triangle</div><div><b>4</b>quad</div><div><b>5</b>pentagon</div>
     </div>
-    <p style="font-size:13px">Close your fist to pause. Two hands make two shapes.</p>
+    <p style="font-size:13px">Close your fist to pause. Two hands make two shapes. Face the light, keep your palm toward the camera, 30–60 cm away.</p>
     <button class="primary" id="start">Allow camera</button>
     <div id="help" class="hide" role="alert"></div>
   </div>
@@ -65,6 +65,8 @@ button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
   <button id="shape">Shape: Polygon</button>
   <button id="sym">Mirrors: 1</button>
   <button id="pen">Pen: Always</button>
+  <button id="boost">Light: Auto</button>
+  <button id="engine">Engine: GPU</button>
   <button id="fade" aria-pressed="true">Fade</button>
   <button id="vid" aria-pressed="true">Video</button>
   <button id="flip">Flip cam</button>
@@ -73,79 +75,148 @@ button[aria-pressed=true]{border-color:var(--acc);color:var(--acc)}
 </nav>
 
 <script type="module">
-import {HandLandmarker,FilesetResolver} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+const VER='0.10.14',CDN='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@'+VER;
+const MODEL='https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 const $=id=>document.getElementById(id);
-const cam=$('cam'),cv=$('art'),ctx=cv.getContext('2d'),hud=$('hud'),hx=hud.getContext('2d'),stEl=$('status');
+const cam=$('cam'),cv=$('art'),ctx=cv.getContext('2d'),hud=$('hud'),hx=hud.getContext('2d'),stEl=$('status'),hintEl=$('hint');
 const setSt=(t,on)=>{stEl.textContent=t;stEl.classList.toggle('on',!!on)};
 let vw=0,vh=0,DPR=1;
 function resize(){DPR=Math.min(devicePixelRatio||1,2);vw=innerWidth;vh=innerHeight;
   const keep=document.createElement('canvas');keep.width=cv.width;keep.height=cv.height;if(cv.width)keep.getContext('2d').drawImage(cv,0,0);
   for(const c of[cv,hud]){c.width=Math.round(vw*DPR);c.height=Math.round(vh*DPR)}
   ctx.setTransform(DPR,0,0,DPR,0,0);hx.setTransform(DPR,0,0,DPR,0,0);
-  if(keep.width)ctx.drawImage(keep,0,0,vw,vh);}
-addEventListener('resize',resize);resize();
+  if(keep.width)ctx.drawImage(keep,0,0,vw,vh);hands=[];}
+addEventListener('resize',resize);
+if(screen.orientation)screen.orientation.addEventListener('change',()=>setTimeout(resize,250));
 
-const SHAPES=['Polygon','Web','Circle','Trails'],SYMS=[1,2,4,8],NAMES=['fist','dot','line','triangle','quad','pentagon'];
-const TIPS=[4,8,12,16,20],PIPS=[2,6,10,14,18];
-let landmarker=null,stream=null,facing='user',camOn=false,shape=0,symI=0,fadeOn=true,pinchPen=false,hands=[],hue=180,lastT=-1,loopOn=false;
+const SHAPES=['Polygon','Web','Circle','Trails'],SYMS=[1,2,4,8],NAMES=['fist','dot','line','triangle','quad','pentagon'],TIPS=[4,8,12,16,20];
+const CONN=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+const cfg={boost:'auto',engine:'GPU'};
+let landmarker=null,modelP=null,HL=null,stream=null,facing='user',mirror=true,camOn=false,loopOn=false;
+let shape=0,symI=0,fadeOn=true,pinchPen=false,hands=[],hue=180,lastT=-1,frameN=0,miss=0,sweepIdx=0,fails=0,detMs=20,maxSide=640,ec=0;
+resize();
 
-// ---------- permission help (Chrome on Android)
+// ---------- help / errors
 function showHelp(n){
   const insecure=!window.isSecureContext||n==='Insecure';
-  const steps=insecure?['This page must be opened over https (for example your github.io link)','Do not open the downloaded file directly']:
-   ['Tap the lock or tune icon left of the address bar \u2192 Permissions \u2192 Camera \u2192 Allow','Or Chrome menu \u22ee \u2192 Settings \u2192 Site settings \u2192 Camera \u2192 allow this site','Also check Android Settings \u2192 Apps \u2192 Chrome \u2192 Permissions \u2192 Camera \u2192 Allow','Come back here \u2013 the camera starts automatically'];
+  const steps=insecure?['Open this page over https (your github.io link)','Do not open the downloaded file directly']:
+   ['Tap the lock or tune icon left of the address bar \u2192 Permissions \u2192 Camera \u2192 Allow','Or Chrome menu \u22ee \u2192 Settings \u2192 Site settings \u2192 Camera \u2192 allow this site','Also check Android Settings \u2192 Apps \u2192 Chrome \u2192 Permissions \u2192 Camera \u2192 Allow','Close other apps that use the camera, then come back \u2013 it restarts automatically'];
   const h=$('help');
   h.innerHTML='<b>'+(n==='NotAllowedError'?'Chrome is blocking the camera':n==='NotReadableError'?'Another app is using the camera':'Camera couldn\u2019t start')+'</b><ol>'+steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
-  h.classList.remove('hide');$('intro').classList.remove('hide');$('start').textContent='Allow camera & try again';
+  h.classList.remove('hide');$('intro').classList.remove('hide');$('bar').classList.add('hide');$('start').textContent='Allow camera & try again';
 }
 
-// ---------- model
+// ---------- model (retries, GPU to CPU fallback, offline-safe)
 async function loadModel(){
   setSt('Loading hand model…');
-  const fs=await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
-  const mk=d=>HandLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",delegate:d},
-    runningMode:"VIDEO",numHands:2,minHandDetectionConfidence:.5,minHandPresenceConfidence:.5,minTrackingConfidence:.5});
-  try{landmarker=await mk("GPU")}catch(e){landmarker=await mk("CPU")}
+  const mp=await import(CDN+'/vision_bundle.mjs');HL=mp.HandLandmarker;
+  const fs=await mp.FilesetResolver.forVisionTasks(CDN+'/wasm');
+  const mk=d=>HL.createFromOptions(fs,{baseOptions:{modelAssetPath:MODEL,delegate:d},runningMode:'VIDEO',numHands:2,
+    minHandDetectionConfidence:.3,minHandPresenceConfidence:.3,minTrackingConfidence:.3});
+  if(cfg.engine==='GPU'){try{landmarker=await mk('GPU')}catch(e){cfg.engine='CPU';$('engine').textContent='Engine: CPU';landmarker=await mk('CPU')}}
+  else landmarker=await mk('CPU');
 }
-let modelP=null;
+async function ensureModel(){
+  if(landmarker)return true;
+  if(!modelP)modelP=(async()=>{for(let i=0;i<3;i++){try{await loadModel();return true}catch(e){await new Promise(r=>setTimeout(r,1500))}}return false})();
+  const ok=await modelP;modelP=null;
+  if(!ok)setSt('Model failed to load – check internet, tap Engine to retry');
+  return ok;
+}
+async function setEngine(d){cfg.engine=d;$('engine').textContent='Engine: '+d;try{landmarker&&landmarker.close()}catch(e){}landmarker=null;hands=[];fails=0;if(await ensureModel())setSt('Show your hand')}
 
 // ---------- camera
-async function startCam(){
+async function startCam(quiet){
   setSt('Waiting for Chrome permission…');
   try{
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Object.assign(new Error('x'),{name:'Insecure'});
     if(stream)stream.getTracks().forEach(t=>t.stop());
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:640},height:{ideal:480},frameRate:{ideal:30,max:30}},audio:false});
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
+    const tr=stream.getVideoTracks()[0];
     cam.srcObject=stream;await cam.play();
-    cam.classList.toggle('mirror',facing==='user');
-    camOn=true;$('intro').classList.add('hide');$('bar').classList.remove('hide');
+    const fm=tr.getSettings&&tr.getSettings().facingMode;mirror=fm?fm==='user':facing==='user';
+    cam.classList.toggle('mirror',mirror);
+    try{tr.applyConstraints({advanced:[{focusMode:'continuous'},{exposureMode:'continuous'},{whiteBalanceMode:'continuous'}]}).catch(()=>{})}catch(e){}
+    tr.addEventListener('ended',()=>{camOn=false;setSt('Camera stopped');showHelp('NotReadableError')});
+    camOn=true;hands=[];miss=0;lastT=-1;ec=0;
+    $('intro').classList.add('hide');$('bar').classList.remove('hide');
     try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
-    if(!landmarker){if(!modelP)modelP=loadModel();try{await modelP}catch(e){modelP=null;setSt('Hand model failed to load – check internet');return}}
-    setSt('Show your hand');
     if(!loopOn){loopOn=true;requestAnimationFrame(loop)}
-  }catch(e){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}
+    if(!landmarker){if(!await ensureModel())return true}
+    setSt('Show your hand');return true;
+  }catch(e){if(!quiet){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}return false}
 }
-$('start').onclick=startCam;
-addEventListener('load',startCam);
+$('start').onclick=()=>startCam();
+addEventListener('load',()=>startCam());
 try{navigator.permissions.query({name:'camera'}).then(p=>{p.onchange=()=>{if(p.state==='granted'&&!camOn)startCam()}}).catch(()=>{})}catch(e){}
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;
-  if(!camOn&&!$('intro').classList.contains('hide'))startCam();
-  else if(stream&&stream.getTracks().some(t=>t.readyState==='ended')){camOn=false;startCam()}});
+  if(!camOn)startCam();else if(stream&&stream.getTracks().some(t=>t.readyState==='ended')){camOn=false;startCam()}});
 
-// ---------- geometry
-function toScreen(p){const cw=cam.videoWidth,ch=cam.videoHeight,s=Math.max(vw/cw,vh/ch);
-  const nx=facing==='user'?1-p.x:p.x;return{x:nx*cw*s+(vw-cw*s)/2,y:p.y*ch*s+(vh-ch*s)/2}}
+// ---------- lighting analysis + enhancement (fixes bright / backlit / washed-out scenes)
+const lumC=document.createElement('canvas');lumC.width=32;lumC.height=24;const lumX=lumC.getContext('2d',{willReadFrequently:true});
+const pc=document.createElement('canvas'),pcx=pc.getContext('2d');
+const SWEEP=[[1,1],[1.45,1.1],[.72,1.25],[1.25,1.55]];
+let lum={mean:120,center:120,edge:120},enh={b:1,c:1};
+function measure(){
+  lumX.drawImage(cam,0,0,32,24);const d=lumX.getImageData(0,0,32,24).data;let s=0,c=0,cn=0,e=0,en=0;
+  for(let y=0;y<24;y++)for(let x=0;x<32;x++){const i=(y*32+x)*4,L=.299*d[i]+.587*d[i+1]+.114*d[i+2];s+=L;
+    if(x>=10&&x<22&&y>=7&&y<17){c+=L;cn++}else if(x<5||x>=27||y<4||y>=20){e+=L;en++}}
+  lum={mean:s/768,center:c/cn,edge:e/en};
+}
+function target(){
+  if(cfg.boost==='off')return[1,1];
+  let b=1,c=1;const m=lum.mean;
+  if(m<105){b=Math.min(2.3,115/Math.max(m,20));c=1.15}else if(m>165){b=Math.max(.6,140/m);c=1.2}
+  if(lum.edge-lum.center>40){b*=1.3;c*=1.1}
+  if(cfg.boost==='strong'){b*=1.2;c*=1.3}
+  if(miss>45&&cfg.boost!=='off'){const s=SWEEP[sweepIdx];b*=s[0];c*=s[1]}
+  return[b,c];
+}
+function prepare(){
+  const cw=cam.videoWidth,ch=cam.videoHeight,sc=Math.min(1,maxSide/Math.max(cw,ch)),w=Math.round(cw*sc),h=Math.round(ch*sc);
+  if(pc.width!==w||pc.height!==h){pc.width=w;pc.height=h}
+  const t=target();enh.b+=(t[0]-enh.b)*.2;enh.c+=(t[1]-enh.c)*.2;
+  pcx.filter=(Math.abs(enh.b-1)<.03&&Math.abs(enh.c-1)<.03)?'none':'brightness('+enh.b.toFixed(2)+') contrast('+enh.c.toFixed(2)+')';
+  pcx.drawImage(cam,0,0,w,h);pcx.filter='none';return pc;
+}
+function tuneExposure(){ // use the camera's own exposure compensation when the hand keeps getting lost
+  try{const tr=stream.getVideoTracks()[0],cp=tr.getCapabilities&&tr.getCapabilities();if(!cp||!cp.exposureCompensation)return;
+    const{min,max,step}=cp.exposureCompensation;let n=ec;
+    if(lum.mean>165)n=Math.max(min,ec-step*2);else if(lum.mean<100||lum.edge-lum.center>40)n=Math.min(max,ec+step*2);
+    if(n!==ec){ec=n;tr.applyConstraints({advanced:[{exposureCompensation:ec}]}).catch(()=>{})}}catch(e){}
+}
+function hintText(){
+  if(lum.mean<60)return'Too dark – turn on a light or face a lamp';
+  if(lum.mean>200)return'Too bright – move away from the window or lamp';
+  if(lum.edge-lum.center>40)return'Light is behind your hand – turn so the light faces you';
+  return'Hold your open palm 30–60 cm from the camera, fingers spread';
+}
+
+// ---------- geometry + finger analysis
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+function toScreen(p){const cw=cam.videoWidth,ch=cam.videoHeight,s=Math.max(vw/cw,vh/ch),nx=mirror?1-p.x:p.x;
+  return{x:nx*cw*s+(vw-cw*s)/2,y:p.y*ch*s+(vh-ch*s)/2}}
+function ang(a,b,c){const cw=cam.videoWidth,ch=cam.videoHeight,ax=(a.x-b.x)*cw,ay=(a.y-b.y)*ch,az=(a.z-b.z)*cw,
+  cx=(c.x-b.x)*cw,cy=(c.y-b.y)*ch,cz=(c.z-b.z)*cw,n=Math.hypot(ax,ay,az)*Math.hypot(cx,cy,cz)||1;
+  return Math.acos(Math.max(-1,Math.min(1,(ax*cx+ay*cy+az*cz)/n)))*57.2958}
+function rawExt(L,was){
+  const r=[];
+  r[0]=ang(L[2],L[3],L[4])>(was[0]?140:152)&&Math.hypot(L[4].x-L[5].x,L[4].y-L[5].y)>Math.hypot(L[3].x-L[5].x,L[3].y-L[5].y)*(was[0]?.95:1.02);
+  for(let f=1;f<5;f++){const m=TIPS[f]-3;r[f]=ang(L[m],L[m+1],L[m+2])>(was[f]?148:160)&&ang(L[m+1],L[m+2],L[m+3])>(was[f]?140:150)}
+  return r;
+}
 function analyse(res){
-  const out=[];
-  (res.landmarks||[]).forEach((lm,i)=>{
-    let pts=lm.map(toScreen);const old=hands[i];
+  const out=[],used=new Set();
+  (res.landmarks||[]).forEach(L=>{
+    let pts=L.map(toScreen),bi=-1,bd=240;
+    hands.forEach((o,j)=>{if(used.has(j))return;const d=dist(o.pts[0],pts[0]);if(d<bd){bd=d;bi=j}});
+    const old=bi>=0?hands[bi]:null;if(old)used.add(bi);
     if(old)pts=pts.map((p,k)=>({x:old.pts[k].x+(p.x-old.pts[k].x)*.55,y:old.pts[k].y+(p.y-old.pts[k].y)*.55}));
-    const w=pts[0],ext=[
-      dist(pts[4],pts[17])>dist(pts[2],pts[17])*1.02,
-      ...[1,2,3,4].map(f=>dist(pts[TIPS[f]],w)>dist(pts[PIPS[f]],w)*1.08)];
+    const was=old?old.ext:[false,false,false,false,false],raw=rawExt(L,was),flip=old?old.flip.slice():[0,0,0,0,0],ext=[];
+    for(let f=0;f<5;f++){if(!old){ext[f]=raw[f];continue}
+      if(raw[f]===was[f]){flip[f]=0;ext[f]=was[f]}else if(++flip[f]>=2){ext[f]=raw[f];flip[f]=0}else ext[f]=was[f]}
     const palm=dist(pts[0],pts[9]);
-    out.push({pts,ext,full:TIPS.map((t,f)=>ext[f]?pts[t]:null),pinch:dist(pts[4],pts[8])<palm*.3});
+    out.push({pts,ext,flip,full:TIPS.map((t,f)=>ext[f]?pts[t]:null),prevFull:old?old.full:null,pinch:dist(pts[4],pts[8])<palm*(old&&old.pinch?.38:.3)});
   });
   return out;
 }
@@ -158,50 +229,53 @@ function renderShape(c,pts,prev,cur){
   c.lineJoin='round';c.lineCap='round';
   if(shape===0){
     if(ord.length===1){c.beginPath();c.arc(ord[0].x,ord[0].y,10,0,6.283);c.stroke()}
-    else{c.beginPath();ord.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(ord.length>2)c.closePath();
-      if(ord.length>2){c.globalAlpha=.18;c.fill();c.globalAlpha=1}c.stroke()}
+    else{c.beginPath();ord.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));if(ord.length>2){c.closePath();c.globalAlpha=.18;c.fill();c.globalAlpha=1}c.stroke()}
   }else if(shape===1){
     c.beginPath();for(let i=0;i<ord.length;i++)for(let j=i+1;j<ord.length;j++){c.moveTo(ord[i].x,ord[i].y);c.lineTo(ord[j].x,ord[j].y)}c.stroke();
     ord.forEach(p=>{c.beginPath();c.arc(p.x,p.y,4,0,6.283);c.fill()});
   }else if(shape===2){
     let r=ord.reduce((a,p)=>a+Math.hypot(p.x-mx,p.y-my),0)/ord.length;if(ord.length===1)r=24;
     c.beginPath();c.arc(mx,my,r,0,6.283);c.stroke();c.beginPath();c.arc(mx,my,r*.5,0,6.283);c.stroke();
-  }else if(prev){
-    c.beginPath();cur.forEach((p,i)=>{if(p&&prev[i]){c.moveTo(prev[i].x,prev[i].y);c.lineTo(p.x,p.y)}});c.stroke();
-  }
+  }else if(prev){c.beginPath();cur.forEach((p,i)=>{if(p&&prev[i]){c.moveTo(prev[i].x,prev[i].y);c.lineTo(p.x,p.y)}});c.stroke()}
 }
 function drawPattern(){
   const N=SYMS[symI],cx=vw/2,cy=vh/2;hue=(hue+1.2)%360;
   ctx.globalCompositeOperation='lighter';ctx.lineWidth=2.4;
-  ctx.strokeStyle=`hsla(${hue},95%,62%,.75)`;ctx.fillStyle=`hsla(${hue},95%,62%,.75)`;ctx.shadowColor=`hsl(${hue},100%,60%)`;ctx.shadowBlur=6;
+  ctx.strokeStyle='hsla('+hue+',95%,62%,.75)';ctx.fillStyle='hsla('+hue+',95%,62%,.75)';ctx.shadowColor='hsl('+hue+',100%,60%)';ctx.shadowBlur=6;
   for(const h of hands){
-    if(pinchPen&&!h.pinch)continue;
-    const pts=h.full.filter(Boolean);
+    if(pinchPen&&!h.pinch)continue;const pts=h.full.filter(Boolean);
     for(let k=0;k<N;k++)for(let m=0;m<(N>1?2:1);m++){
       ctx.save();ctx.translate(cx,cy);ctx.rotate(k*2*Math.PI/N);if(m)ctx.scale(1,-1);ctx.translate(-cx,-cy);
       renderShape(ctx,pts,h.prevFull,h.full);ctx.restore()}}
   ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;
 }
 function drawHud(){
-  hx.clearRect(0,0,vw,vh);
+  hx.clearRect(0,0,vw,vh);hx.lineCap='round';
   for(const h of hands){
-    hx.strokeStyle='rgba(255,255,255,.3)';hx.lineWidth=1.5;hx.beginPath();
-    for(const c of HandLandmarker.HAND_CONNECTIONS){const a=h.pts[c.start],b=h.pts[c.end];hx.moveTo(a.x,a.y);hx.lineTo(b.x,b.y)}hx.stroke();
+    hx.beginPath();for(const c of CONN){const a=h.pts[c[0]],b=h.pts[c[1]];hx.moveTo(a.x,a.y);hx.lineTo(b.x,b.y)}
+    hx.strokeStyle='rgba(0,0,0,.65)';hx.lineWidth=5;hx.stroke();hx.strokeStyle='rgba(255,255,255,.9)';hx.lineWidth=2;hx.stroke();
     TIPS.forEach((t,f)=>{const p=h.pts[t];hx.beginPath();hx.arc(p.x,p.y,h.ext[f]?12:5,0,6.283);
-      if(h.ext[f]){hx.strokeStyle='#5ef2e0';hx.lineWidth=2.5;hx.stroke()}else{hx.fillStyle='rgba(255,255,255,.45)';hx.fill()}});
-    if(h.pinch){hx.strokeStyle='#ff5fd2';hx.lineWidth=3;hx.beginPath();hx.moveTo(h.pts[4].x,h.pts[4].y);hx.lineTo(h.pts[8].x,h.pts[8].y);hx.stroke()}
+      if(h.ext[f]){hx.strokeStyle='rgba(0,0,0,.7)';hx.lineWidth=5.5;hx.stroke();hx.strokeStyle='#5ef2e0';hx.lineWidth=3;hx.stroke()}else{hx.fillStyle='#fff';hx.fill()}});
+    if(h.pinch){hx.beginPath();hx.moveTo(h.pts[4].x,h.pts[4].y);hx.lineTo(h.pts[8].x,h.pts[8].y);hx.strokeStyle='#ff5fd2';hx.lineWidth=4;hx.stroke()}
   }
 }
+
+// ---------- main loop
 function loop(){
   requestAnimationFrame(loop);
   if(fadeOn){ctx.globalCompositeOperation='destination-out';ctx.fillStyle='rgba(0,0,0,.06)';ctx.fillRect(0,0,vw,vh);ctx.globalCompositeOperation='source-over'}
   if(!camOn||!landmarker||cam.readyState<2||!cam.videoWidth)return;
   if(cam.currentTime!==lastT){
-    lastT=cam.currentTime;
-    let res;try{res=landmarker.detectForVideo(cam,performance.now())}catch(e){return}
-    const next=analyse(res);next.forEach((h,i)=>{h.prevFull=hands[i]?hands[i].full:null});hands=next;
-    if(!hands.length)setSt('Show your hand');
-    else setSt(hands.map(h=>{const n=h.ext.filter(Boolean).length;return n+(n===1?' finger':' fingers')+' · '+NAMES[n]}).join('  |  '),true);
+    lastT=cam.currentTime;frameN++;if(frameN%8===1)measure();
+    const t0=performance.now();let res;
+    try{res=landmarker.detectForVideo(prepare(),t0);fails=0}catch(e){if(++fails>=5&&cfg.engine==='GPU')setEngine('CPU');return}
+    detMs=detMs*.9+(performance.now()-t0)*.1;if(detMs>45&&maxSide>384)maxSide=384;
+    const next=analyse(res);
+    if(next.length){hands=next;miss=0}
+    else{miss++;if(miss>6)hands=[];if(miss>45&&miss%40===0)sweepIdx=(sweepIdx+1)%SWEEP.length;if(miss>30&&miss%60===0)tuneExposure()}
+    if(hands.length)setSt(hands.map(h=>{const n=h.ext.filter(Boolean).length;return n+(n===1?' finger':' fingers')+' · '+NAMES[n]}).join('  |  '),true);
+    else{setSt('Searching for hand…');}
+    if(!hands.length&&miss>20){hintEl.textContent=hintText();hintEl.classList.remove('hide')}else hintEl.classList.add('hide');
   }
   drawPattern();drawHud();
 }
@@ -210,9 +284,11 @@ function loop(){
 $('shape').onclick=e=>{shape=(shape+1)%4;e.target.textContent='Shape: '+SHAPES[shape]};
 $('sym').onclick=e=>{symI=(symI+1)%4;e.target.textContent='Mirrors: '+SYMS[symI]};
 $('pen').onclick=e=>{pinchPen=!pinchPen;e.target.textContent='Pen: '+(pinchPen?'Pinch':'Always')};
+$('boost').onclick=e=>{cfg.boost=cfg.boost==='auto'?'strong':cfg.boost==='strong'?'off':'auto';e.target.textContent='Light: '+cfg.boost[0].toUpperCase()+cfg.boost.slice(1)};
+$('engine').onclick=()=>setEngine(cfg.engine==='GPU'?'CPU':'GPU');
 $('fade').onclick=e=>{fadeOn=!fadeOn;e.target.setAttribute('aria-pressed',fadeOn)};
 $('vid').onclick=e=>{const on=cam.style.visibility!=='hidden';cam.style.visibility=on?'hidden':'visible';e.target.setAttribute('aria-pressed',!on)};
-$('flip').onclick=()=>{facing=facing==='user'?'environment':'user';hands=[];startCam()};
+$('flip').onclick=async()=>{const old=facing;facing=old==='user'?'environment':'user';if(!await startCam(true)){facing=old;startCam()}};
 $('clr').onclick=()=>ctx.clearRect(0,0,vw,vh);
 $('save').onclick=()=>{const o=document.createElement('canvas');o.width=cv.width;o.height=cv.height;const c=o.getContext('2d');c.fillStyle='#07080d';c.fillRect(0,0,o.width,o.height);c.drawImage(cv,0,0);
   o.toBlob(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='handloom.png';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)})};
