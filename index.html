@@ -99,7 +99,8 @@ resize();
 // ---------- help / errors
 function showHelp(n){
   const insecure=!window.isSecureContext||n==='Insecure';
-  const steps=insecure?['Open this page over https (your github.io link)','Do not open the downloaded file directly']:
+  const busy=['Close other Chrome tabs that may hold the camera (old Handloom or Claude tabs)','Close camera, scanner or video-call apps running in the background','Swipe Chrome away from your recent apps, reopen it, and load this page again','Still stuck? Restart the phone \u2013 that frees a stuck camera'];
+  const steps=n==='NotReadableError'?busy:insecure?['Open this page over https (your github.io link)','Do not open the downloaded file directly']:
    ['Tap the lock or tune icon left of the address bar \u2192 Permissions \u2192 Camera \u2192 Allow (or tap Reset permissions so Chrome asks again)','Or Chrome menu \u22ee \u2192 Settings \u2192 Site settings \u2192 Camera \u2192 find this site under Blocked \u2192 Allow','Also check Android Settings \u2192 Apps \u2192 Chrome \u2192 Permissions \u2192 Camera \u2192 Allow','Close other apps that use the camera, then come back \u2013 it restarts automatically'];
   const h=$('help');
   h.innerHTML='<b>'+(n==='Pending'?'No prompt showing? Do this':n==='NotAllowedError'?'Chrome is blocking the camera':n==='NotReadableError'?'Another app is using the camera':'Camera couldn\u2019t start')+'</b><ol>'+steps.map(s=>'<li>'+s+'</li>').join('')+'</ol>';
@@ -126,33 +127,58 @@ async function ensureModel(){
 }
 async function setEngine(d){cfg.engine=d;$('engine').textContent='Engine: '+d;try{landmarker&&landmarker.close()}catch(e){}landmarker=null;hands=[];fails=0;if(await ensureModel())setSt('Show your hand')}
 
-// ---------- camera
-async function startCam(quiet){
-  setSt('Waiting for Chrome permission…');
-  clearTimeout(startCam.t);startCam.t=setTimeout(()=>{if(!camOn)showHelp('Pending')},4500);
-  try{
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Object.assign(new Error('x'),{name:'Insecure'});
-    if(stream)stream.getTracks().forEach(t=>t.stop());
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},audio:false});
-    const tr=stream.getVideoTracks()[0];
-    cam.srcObject=stream;await cam.play();
-    const fm=tr.getSettings&&tr.getSettings().facingMode;mirror=fm?fm==='user':facing==='user';
-    cam.classList.toggle('mirror',mirror);
-    try{tr.applyConstraints({advanced:[{focusMode:'continuous'},{exposureMode:'continuous'},{whiteBalanceMode:'continuous'}]}).catch(()=>{})}catch(e){}
-    tr.addEventListener('ended',()=>{camOn=false;setSt('Camera stopped');showHelp('NotReadableError')});
-    clearTimeout(startCam.t);camOn=true;hands=[];miss=0;lastT=-1;ec=0;
-    $('intro').classList.add('hide');$('bar').classList.remove('hide');
-    try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
-    if(!loopOn){loopOn=true;requestAnimationFrame(loop)}
-    if(!landmarker){if(!await ensureModel())return true}
-    setSt('Show your hand');return true;
-  }catch(e){clearTimeout(startCam.t);if(!quiet){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}return false}
+// ---------- camera (one start at a time, fully releases the hardware, retries with simpler settings)
+let starting=null,gen=0;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function releaseCam(){gen++;if(stream){stream.getTracks().forEach(t=>{try{t.stop()}catch(e){}});stream=null}try{cam.srcObject=null}catch(e){}camOn=false}
+async function openStream(){
+  const other=facing==='user'?'environment':'user';
+  const tries=[
+    {facingMode:{ideal:facing},width:{ideal:1280},height:{ideal:720},frameRate:{ideal:30}},
+    {facingMode:{ideal:facing},width:{ideal:640},height:{ideal:480}},
+    {facingMode:{ideal:facing}},
+    {facingMode:{ideal:other}},
+    true];
+  let err;
+  for(let i=0;i<tries.length;i++){
+    try{return await navigator.mediaDevices.getUserMedia({video:tries[i],audio:false})}
+    catch(e){err=e;if(e.name==='NotAllowedError'||e.name==='SecurityError')throw e;await sleep(i<2?800:400)}
+  }
+  throw err;
+}
+function startCam(quiet){
+  if(starting)return starting;
+  starting=(async()=>{
+    await Promise.resolve();
+    setSt('Waiting for Chrome permission…');
+    clearTimeout(startCam.t);startCam.t=setTimeout(()=>{if(!camOn)showHelp('Pending')},7000);
+    try{
+      if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw Object.assign(new Error('x'),{name:'Insecure'});
+      releaseCam();await sleep(300);const my=gen;
+      const s=await openStream();
+      if(my!==gen){s.getTracks().forEach(t=>t.stop());return false}
+      stream=s;const tr=s.getVideoTracks()[0];cam.srcObject=s;await cam.play();
+      const fm=tr.getSettings&&tr.getSettings().facingMode;if(fm)facing=fm==='user'?'user':'environment';
+      mirror=facing==='user';cam.classList.toggle('mirror',mirror);
+      try{tr.applyConstraints({advanced:[{focusMode:'continuous'},{exposureMode:'continuous'},{whiteBalanceMode:'continuous'}]}).catch(()=>{})}catch(e){}
+      tr.addEventListener('ended',()=>{if(stream!==s)return;camOn=false;setSt('Camera stopped – restarting…');setTimeout(()=>startCam(),1000)});
+      clearTimeout(startCam.t);camOn=true;hands=[];miss=0;lastT=-1;ec=0;
+      $('help').classList.add('hide');$('intro').classList.add('hide');$('bar').classList.remove('hide');
+      try{navigator.wakeLock&&navigator.wakeLock.request('screen').catch(()=>{})}catch(e){}
+      if(!loopOn){loopOn=true;requestAnimationFrame(loop)}
+      if(!landmarker){if(!await ensureModel())return true}
+      setSt('Show your hand');return true;
+    }catch(e){clearTimeout(startCam.t);if(!quiet){setSt('Camera error: '+((e&&e.name)||'unknown'));showHelp(e&&e.name)}return false}
+    finally{starting=null}
+  })();
+  return starting;
 }
 $('start').onclick=()=>startCam();
 addEventListener('load',()=>startCam());
 try{navigator.permissions.query({name:'camera'}).then(p=>{p.onchange=()=>{if(p.state==='granted'&&!camOn)startCam()}}).catch(()=>{})}catch(e){}
-document.addEventListener('visibilitychange',()=>{if(document.hidden)return;
-  if(!camOn)startCam();else if(stream&&stream.getTracks().some(t=>t.readyState==='ended')){camOn=false;startCam()}});
+// release the camera whenever the page is hidden or closed so it never stays locked for other tabs/apps
+document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseCam();else startCam()});
+addEventListener('pagehide',releaseCam);
 
 // ---------- lighting analysis + enhancement (fixes bright / backlit / washed-out scenes)
 const lumC=document.createElement('canvas');lumC.width=32;lumC.height=24;const lumX=lumC.getContext('2d',{willReadFrequently:true});
